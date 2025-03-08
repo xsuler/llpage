@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Entity Highlighter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 15px;
+      width: 300px;
+    }
+    
+    h1 {
+      color: #333;
+      font-size: 18px;
+      margin-top: 0;
+      margin-bottom: 15px;
+    }
+    
+    .status {
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 15px;
+      padding: 10px;
+    }
+    
+    .status.error {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+    
+    .status.success {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+    
+    .button-container {
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    button {
+      background-color: #4285f4;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 8px 16px;
+      transition: background-color 0.2s ease;
+    }
+    
+    button:hover {
+      background-color: #3367d6;
+    }
+    
+    button.secondary {
+      background-color: #f1f1f1;
+      color: #333;
+    }
+    
+    button.secondary:hover {
+      background-color: #e0e0e0;
+    }
+    
+    .footer {
+      border-top: 1px solid #eee;
+      color: #999;
+      font-size: 12px;
+      margin-top: 15px;
+      padding-top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Entity Highlighter</h1>
+  
+  <div id="status" class="status">
+    Checking API key status...
+  </div>
+  
+  <div class="button-container">
+    <button id="highlightButton">Highlight Entities</button>
+    <button id="optionsButton" class="secondary">Settings</button>
+  </div>
+  
+  <div class="footer">
+    Made by Eon
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html> 

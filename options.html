@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Entity Highlighter Options</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      max-width: 700px;
+    }
+    
+    h1 {
+      color: #333;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    
+    h2 {
+      color: #555;
+      font-size: 18px;
+      margin: 25px 0 15px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    input[type="text"], select {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      padding: 8px 12px;
+      width: 100%;
+    }
+    
+    .checkbox-group {
+      margin: 15px 0;
+    }
+    
+    .checkbox-group label {
+      display: flex;
+      align-items: center;
+      font-weight: normal;
+      cursor: pointer;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+      margin-right: 10px;
+    }
+    
+    .info-box {
+      background-color: #f9f9f9;
+      border-left: 3px solid #ddd;
+      color: #666;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-top: 10px;
+      padding: 10px;
+    }
+    
+    .button-container {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    button {
+      background-color: #4285f4;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 8px 16px;
+      transition: background-color 0.2s ease;
+    }
+    
+    button:hover {
+      background-color: #3367d6;
+    }
+    
+    button.secondary {
+      background-color: #f1f1f1;
+      color: #333;
+    }
+    
+    button.secondary:hover {
+      background-color: #e0e0e0;
+    }
+    
+    .status {
+      color: #4caf50;
+      font-weight: bold;
+      margin-top: 10px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    
+    .status.show {
+      opacity: 1;
+    }
+    
+    .status.error {
+      color: #f44336;
+      background-color: #ffebee;
+    }
+    
+    .status.success {
+      color: #4caf50;
+      background-color: #e8f5e9;
+    }
+    
+    .model-config {
+      border: 1px solid #eee;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    
+    .preset-models {
+      margin-bottom: 20px;
+    }
+    
+    .preset-button {
+      background-color: #f1f1f1;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      color: #333;
+      cursor: pointer;
+      font-size: 13px;
+      margin-right: 8px;
+      margin-bottom: 8px;
+      padding: 5px 10px;
+      transition: all 0.2s ease;
+    }
+    
+    .preset-button:hover {
+      background-color: #e0e0e0;
+    }
+    
+    .preset-button.active {
+      background-color: #4285f4;
+      border-color: #3367d6;
+      color: white;
+    }
+    
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(0, 0, 0, 0.1);
+      border-top-color: #4285f4;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Entity Highlighter Options</h1>
+  
+  <div class="info-box">
+    <p>Configure the AI model settings for entity highlighting. You can use Deepseek's model or any compatible OpenAI-like API.</p>
+  </div>
+  
+  <h2>Model Configuration</h2>
+  
+  <div class="preset-models">
+    <label>Quick Presets:</label>
+    <div>
+      <button class="preset-button" data-preset="deepseek">Deepseek</button>
+      <button class="preset-button" data-preset="openai">OpenAI</button>
+      <button class="preset-button" data-preset="anthropic">Anthropic</button>
+      <button class="preset-button" data-preset="custom">Custom</button>
+    </div>
+  </div>
+  
+  <div class="model-config">
+    <div class="form-group">
+      <label for="apiBaseUrl">API Base URL:</label>
+      <input type="text" id="apiBaseUrl" placeholder="Enter the API base URL (e.g., https://api.deepseek.com/v1)">
+    </div>
+    
+    <div class="form-group">
+      <label for="apiKey">API Key:</label>
+      <input type="text" id="apiKey" placeholder="Enter your API key">
+    </div>
+    
+    <div class="form-group">
+      <label for="modelName">Model Name:</label>
+      <input type="text" id="modelName" placeholder="Enter the model name (e.g., deepseek-chat)">
+    </div>
+    
+    <div class="form-group">
+      <label for="apiType">API Type:</label>
+      <select id="apiType">
+        <option value="openai">OpenAI-compatible</option>
+        <option value="anthropic">Anthropic-compatible</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+  </div>
+  
+  <h2>Behavior Settings</h2>
+  
+  <div class="checkbox-group">
+    <label for="autoProcess">
+      <input type="checkbox" id="autoProcess">
+      Automatically process pages when loaded
+    </label>
+    <div class="info-box">
+      <p>When enabled, the extension will automatically process and highlight entities on pages as they load. When disabled, you'll need to click the "Highlight Entities" button in the popup to start processing.</p>
+    </div>
+  </div>
+  
+  <h2>Advanced Settings</h2>
+  
+  <div class="form-group">
+    <label for="chunkSize">Text Chunk Size:</label>
+    <input type="text" id="chunkSize" placeholder="500">
+    <div class="info-box">
+      <p>The size of text chunks to process at once. Smaller chunks process faster but may miss context. Larger chunks provide better context but may be slower.</p>
+    </div>
+  </div>
+  
+  <div class="form-group">
+    <label for="temperature">Model Temperature:</label>
+    <input type="text" id="temperature" placeholder="0.1">
+    <div class="info-box">
+      <p>Controls randomness in the model's responses. Lower values (0.1-0.3) are more deterministic and better for entity extraction.</p>
+    </div>
+  </div>
+  
+  <div class="button-container">
+    <button id="saveButton">Save Settings</button>
+    <button id="testButton" class="secondary">Test Connection</button>
+    <button id="resetButton" class="secondary">Reset to Defaults</button>
+  </div>
+  
+  <div id="status" class="status">Settings saved!</div>
+  
+  <script src="options.js"></script>
+</body>
+</html> 
