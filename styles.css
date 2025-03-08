@@ -20,7 +20,7 @@
 /* Entity info panel styles */
 .entity-info-panel {
   position: absolute;
-  z-index: 1000;
+  z-index: 10001; /* Increased z-index to appear above entity highlights */
   background: white;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -130,7 +130,7 @@
   font-size: 12px;
   padding: 5px 10px;
   position: absolute;
-  z-index: 10000;
+  z-index: 10001; /* Updated to match entity-info-panel z-index */
 }
 
 /* Progress indicator for chunk processing */
@@ -143,7 +143,7 @@
   left: 20px;
   padding: 8px 12px;
   position: fixed;
-  z-index: 10000;
+  z-index: 10001; /* Updated to be consistent with other UI elements */
   transition: opacity 0.3s ease;
   opacity: 0;
 }

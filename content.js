@@ -15,6 +15,15 @@ let debugMode = true; // Enable debug logging
 let modelSettings = null; // Store model settings
 let highlightingInProgress = false; // Flag to track if highlighting is in progress
 let autoProcess = false; // Flag to control automatic processing
+let entityDetailsCache = new Map(); // Cache for storing entity details
+let entityIdCounter = 0; // Counter for generating unique entity IDs
+let pendingEntityRequests = new Map(); // Track ongoing entity detail requests
+let isRequestInProgress = false; // Flag to track if a request is in progress
+
+// Function to generate unique entity ID
+function generateEntityId() {
+  return `entity_${++entityIdCounter}`;
+}
 
 // Initialize the extension
 function initialize() {
@@ -22,6 +31,17 @@ function initialize() {
   
   // Add click event listener for entity highlights
   document.addEventListener('click', handleEntityClick);
+  
+  // Add document-level click listener to handle clicks outside the panel
+  document.addEventListener('click', function(event) {
+    // If there's an info panel and the click is not inside it or on an entity highlight
+    if (infoPanel && 
+        !event.target.closest('.entity-info-panel') && 
+        !event.target.classList.contains('entity-highlight') &&
+        !event.target.closest('.entity-highlight')) {
+      removeInfoPanel();
+    }
+  }, true); // Use capture phase to ensure this runs before other handlers
   
   // Load settings
   loadSettings();
@@ -508,6 +528,9 @@ function resetHighlights() {
   // Reset state
   highlightedElements = [];
   processedTextNodes = new Set();
+  entityDetailsCache.clear(); // Clear the entity details cache
+  pendingEntityRequests.clear(); // Clear pending requests
+  isRequestInProgress = false; // Reset request in progress flag
   removeInfoPanel();
   removeProcessingStatus();
   removeProcessingOverlay();
@@ -547,9 +570,11 @@ function highlightEntityInNode(textNode, entity, originalText) {
       
       // Create highlighted span for the entity
       const span = document.createElement('span');
+      const entityId = generateEntityId();
       span.className = 'entity-highlight';
       span.textContent = match[0];
-      span.dataset.entityId = entity.id || entity.name;
+      span.dataset.entityId = entityId;
+      span.dataset.entityName = entity.name;
       span.dataset.entityType = entity.type || 'unknown';
       span.dataset.clickable = 'true';
       span.style.cursor = 'pointer';
@@ -607,9 +632,6 @@ function handleEntityClick(event) {
     } else {
       processEntityClick(target, entityName);
     }
-  } else if (!target.closest('.entity-info-panel')) {
-    // If clicked outside entity or info panel, remove panel
-    removeInfoPanel();
   }
 }
 
@@ -716,13 +738,57 @@ function extractSurroundingText(targetElement, wordCount = 1000) {
 function processEntityClick(target, entityName) {
   // Remove existing info panel
   removeInfoPanel();
+
+  const entityId = target.dataset.entityId;
+  if (!entityId) {
+    debugLog('Error: No entity ID found on clicked element');
+    return;
+  }
+
+  // Check if we have cached details for this entity ID
+  if (entityDetailsCache.has(entityId)) {
+    debugLog('Using cached entity details for ID: ' + entityId);
+    showEntityInfo(target, entityDetailsCache.get(entityId));
+    return;
+  }
+
+  // Check if there's already a pending request for this entity
+  if (pendingEntityRequests.has(entityId)) {
+    debugLog('Request already pending for entity ID: ' + entityId);
+    return;
+  }
+
+  // Add this request to pending
+  pendingEntityRequests.set(entityId, { target, entityName });
+
+  // If there's already a request in progress, don't send another one
+  if (isRequestInProgress) {
+    debugLog('Request in progress, queued entity ID: ' + entityId);
+    return;
+  }
+
+  // Process the next pending request
+  processNextEntityRequest();
+}
+
+// Process the next pending entity request
+function processNextEntityRequest() {
+  if (isRequestInProgress || pendingEntityRequests.size === 0) {
+    return;
+  }
+
+  // Get the first pending request
+  const [entityId, { target, entityName }] = pendingEntityRequests.entries().next().value;
   
+  // Mark as in progress
+  isRequestInProgress = true;
+
   // Show loading indicator
   showLoadingIndicator(target);
-  
+
   // Extract surrounding text for context
   const surroundingText = extractSurroundingText(target, 1000);
-  
+
   // Get entity details from AI API
   chrome.runtime.sendMessage({
     action: 'getEntityDetails',
@@ -731,35 +797,50 @@ function processEntityClick(target, entityName) {
     contextText: surroundingText
   }, function(response) {
     removeLoadingIndicator();
+
+    // Remove from pending requests
+    pendingEntityRequests.delete(entityId);
     
+    // Reset request in progress flag
+    isRequestInProgress = false;
+
     if (chrome.runtime.lastError) {
       debugLog(`Runtime error: ${chrome.runtime.lastError.message}`);
+      // Process next request if any
+      processNextEntityRequest();
       return;
     }
-    
+
     debugLog('Received entity details response:', response);
-    
+
     if (response && response.success) {
       // Validate the details object
       if (!response.details) {
         debugLog('Error: No details object in response');
+        processNextEntityRequest();
         return;
       }
-      
+
       // Ensure details has the expected properties
       const details = {
         description: response.details.description || 'No description available.',
         background: response.details.background || '',
         relationships: response.details.relationships || []
       };
-      
+
       debugLog('Processed details for display:', details);
-      
+
+      // Cache the details using the entity ID
+      entityDetailsCache.set(entityId, details);
+
       // Show entity info with validated details
       showEntityInfo(target, details);
     } else {
       debugLog('Error getting entity details:', response ? response.error : 'Unknown error');
     }
+
+    // Process next request if any
+    processNextEntityRequest();
   });
 }
 
@@ -790,9 +871,17 @@ function removeLoadingIndicator() {
 
 // Show entity information panel
 function showEntityInfo(entityElement, details) {
+  // Remove any existing panel first
+  removeInfoPanel();
+  
   // Create info panel
   infoPanel = document.createElement('div');
   infoPanel.className = 'entity-info-panel';
+  
+  // Add click handler to prevent event propagation
+  infoPanel.addEventListener('click', function(event) {
+    event.stopPropagation();
+  });
   
   // Add content to panel
   const title = document.createElement('h3');
@@ -847,18 +936,18 @@ function showEntityInfo(entityElement, details) {
     infoPanel.appendChild(relationships);
   }
   
-  // Close button
+  // Position the panel
+  const rect = entityElement.getBoundingClientRect();
+  infoPanel.style.left = `${window.scrollX + rect.left}px`;
+  infoPanel.style.top = `${window.scrollY + rect.bottom + 10}px`;
+
+    // Close button
   const closeBtn = document.createElement('button');
   closeBtn.className = 'close-btn';
   closeBtn.textContent = '×';
   closeBtn.addEventListener('click', removeInfoPanel);
   infoPanel.appendChild(closeBtn);
-  
-  // Position the panel
-  const rect = entityElement.getBoundingClientRect();
-  infoPanel.style.left = `${window.scrollX + rect.left}px`;
-  infoPanel.style.top = `${window.scrollY + rect.bottom + 10}px`;
-  
+ 
   // Add to document
   document.body.appendChild(infoPanel);
   
