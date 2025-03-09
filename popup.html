@@ -1,24 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Entity Highlighter</title>
+  <title>TextInsight Pro</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
       padding: 15px;
-      width: 300px;
+      width: 320px;
+      color: #333;
     }
     
     h1 {
-      color: #333;
+      color: #2c3e50;
       font-size: 18px;
       margin-top: 0;
       margin-bottom: 15px;
+      font-weight: 600;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 8px;
     }
     
     .status {
-      background-color: #f5f5f5;
+      background-color: #f8f9fa;
       border-radius: 4px;
       color: #666;
       font-size: 14px;
@@ -27,13 +31,13 @@
     }
     
     .status.error {
-      background-color: #ffebee;
-      color: #c62828;
+      background-color: #fff5f5;
+      color: #e53e3e;
     }
     
     .status.success {
-      background-color: #e8f5e9;
-      color: #2e7d32;
+      background-color: #f0fff4;
+      color: #38a169;
     }
     
     .button-container {
@@ -42,32 +46,35 @@
     }
     
     button {
-      background-color: #4285f4;
+      background-color: #3182ce;
       border: none;
       border-radius: 4px;
       color: white;
       cursor: pointer;
       font-size: 14px;
       padding: 8px 16px;
-      transition: background-color 0.2s ease;
+      transition: all 0.2s ease;
+      font-weight: 500;
     }
     
     button:hover {
-      background-color: #3367d6;
+      background-color: #2b6cb0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
     }
     
     button.secondary {
-      background-color: #f1f1f1;
-      color: #333;
+      background-color: #f7fafc;
+      color: #4a5568;
+      border: 1px solid #e2e8f0;
     }
     
     button.secondary:hover {
-      background-color: #e0e0e0;
+      background-color: #edf2f7;
     }
     
     .footer {
       border-top: 1px solid #eee;
-      color: #999;
+      color: #a0aec0;
       font-size: 12px;
       margin-top: 15px;
       padding-top: 10px;
@@ -76,19 +83,19 @@
   </style>
 </head>
 <body>
-  <h1>Entity Highlighter</h1>
+  <h1>TextInsight Pro</h1>
   
   <div id="status" class="status">
-    Checking API key status...
+    Checking API connection...
   </div>
   
   <div class="button-container">
-    <button id="highlightButton">Highlight Entities</button>
+    <button id="highlightButton">Analyze Text</button>
     <button id="optionsButton" class="secondary">Settings</button>
   </div>
   
   <div class="footer">
-    Made by Eon
+    Professional text analysis tool
   </div>
   
   <script src="popup.js"></script>

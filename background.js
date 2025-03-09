@@ -239,37 +239,39 @@ async function callOpenAIAPI(action, inputContent, apiKey, contextText = '') {
   // Set prompts based on action
   switch (action) {
     case 'identifyEntities':
-      systemPrompt = '你是一位擅长识别文本中实体的专家。从提供的文本中提取所有实体。对于每个实体，提供其名称和类型。';
-      userPrompt = `识别以下文本中的所有实体，并将它们作为JSON返回：\n\n${inputContent}
+      systemPrompt = '你是一位擅长识别文本中概念的专家。从提供的文本中提取所有概念。对于每个概念，提供其名称和类型。';
+      userPrompt = `识别以下文本中的所有概念，并将它们作为JSON返回：\n\n${inputContent}
        以JSON格式返回：
        {
         "entities": [
           {"name": "约翰·史密斯", "type": "人物"},
-          {"name": "谷歌", "type": "组织"},
-          {"name": "巴黎", "type": "地点"}
+          ...
         ]
        }
+
+       注意，每一句中的主语，谓语，宾语，都是概念。
+       对于一段文本，提取概念文本比例不低于80%。
       `;
       break;
     case 'getEntityDetails':
-      systemPrompt = '你是一位擅长提供实体详细信息的专家。提供全面的描述、背景知识，以及与其他实体的关系。使用提供的上下文来增强你的回答。';
+      systemPrompt = '你是一位擅长提供概念详细信息的专家。提供全面的描述、背景知识，以及与其他概念的关系。使用提供的上下文来增强你的回答。';
       
       // Include context text if available
       if (contextText && contextText.length > 0) {
-        userPrompt = `提供关于"${inputContent}"的详细信息。包括描述、背景知识，以及与上下文中其他实体的关系。
+        userPrompt = `提供关于"${inputContent}"的详细信息。包括描述、背景知识，以及与上下文中其他概念的关系。
         
-        以下是实体出现的上下文，请使用这些信息来增强你的回答：
+        以下是概念出现的上下文，请使用这些信息来增强你的回答：
         
         "${contextText}"
         
-        将信息作为JSON对象返回，包含"description"、"background"和"relationships"属性。其中relationships是一个数组，描述与其他实体的关系。
+        将信息作为JSON对象返回，包含"description"、"background"和"relationships"属性。其中relationships是一个数组，描述与其他概念的关系。
         以JSON格式返回：
         {
           "info": {
-            "description": "实体的详细描述...",
-            "background": "关于实体的背景知识...",
+            "description": "概念的详细描述...",
+            "background": "关于概念的背景知识...",
             "relationships": [
-              {"entity": "其他实体名称", "description": "与该实体的关系描述"}
+              {"entity": "其他概念名称", "description": "与该概念的关系描述"}
             ]
           }
         }
@@ -279,8 +281,8 @@ async function callOpenAIAPI(action, inputContent, apiKey, contextText = '') {
         以JSON格式返回：
         {
           "info": {
-            "description": "实体的详细描述...",
-            "background": "关于实体的背景知识...",
+            "description": "概念的详细描述...",
+            "background": "关于概念的背景知识...",
             "relationships": []
           }
         }
@@ -288,13 +290,13 @@ async function callOpenAIAPI(action, inputContent, apiKey, contextText = '') {
       }
       break;
     case 'getEntityRelationships':
-      systemPrompt = '你是一位擅长识别实体之间关系的专家。识别给定实体与其他实体之间所有可能的关系。使用提供的上下文来增强你的回答。';
+      systemPrompt = '你是一位擅长识别概念之间关系的专家。识别给定概念与其他概念之间所有可能的关系。使用提供的上下文来增强你的回答。';
       
       // Include context text if available
       if (contextText && contextText.length > 0) {
-        userPrompt = `识别"${inputContent}"与其他实体之间可能的关系。
+        userPrompt = `识别"${inputContent}"与其他概念之间可能的关系。
         
-        以下是实体出现的上下文，请使用这些信息来识别关系：
+        以下是概念出现的上下文，请使用这些信息来识别关系：
         
         "${contextText}"
         
@@ -302,18 +304,18 @@ async function callOpenAIAPI(action, inputContent, apiKey, contextText = '') {
         以JSON格式返回：
         {
          "relationships": [
-           {"targetEntity": "实体B", "type": "父级"},
-           {"targetEntity": "实体C", "type": "合作"}
+           {"targetEntity": "概念B", "type": "父级"},
+           {"targetEntity": "概念C", "type": "合作"}
          ]
         }
         `;
       } else {
-        userPrompt = `识别"${inputContent}"与其他实体之间可能的关系。将关系作为JSON对象返回，包含"relationships"属性，该属性包含一个对象数组，每个对象具有"targetEntity"和"type"属性。
+        userPrompt = `识别"${inputContent}"与其他概念之间可能的关系。将关系作为JSON对象返回，包含"relationships"属性，该属性包含一个对象数组，每个对象具有"targetEntity"和"type"属性。
         以JSON格式返回：
         {
          "relationships": [
-           {"targetEntity": "实体B", "type": "父级"},
-           {"targetEntity": "实体C", "type": "合作"}
+           {"targetEntity": "概念B", "type": "父级"},
+           {"targetEntity": "概念C", "type": "合作"}
          ]
         }
         `;
@@ -401,26 +403,28 @@ async function callAnthropicAPI(action, inputContent, apiKey, contextText = '') 
   // Set prompts based on action
   switch (action) {
     case 'identifyEntities':
-      systemPrompt = '你是一位擅长识别文本中实体的专家。从提供的文本中提取所有实体。对于每个实体，提供其名称和类型。';
-      userPrompt = `识别以下文本中的所有实体，并将它们作为JSON返回：\n\n${inputContent}
+      systemPrompt = '你是一位擅长识别文本中概念的专家。从提供的文本中提取所有概念。对于每个概念，提供其名称和类型。';
+      userPrompt = `识别以下文本中的所有概念，并将它们作为JSON返回：\n\n${inputContent}
        以JSON格式返回：
        {
         "entities": [
           {"name": "约翰·史密斯", "type": "人物"},
-          {"name": "谷歌", "type": "组织"},
-          {"name": "巴黎", "type": "地点"}
+          ...
         ]
        }
+
+       注意，每一句中的主语，谓语，宾语，都是概念。
+       对于一段文本，提取概念文本比例不低于80%。
       `;
       break;
     case 'getEntityDetails':
-      systemPrompt = '你是一位擅长提供实体详细信息的专家。提供全面的描述和背景知识。使用提供的上下文来增强你的回答。';
+      systemPrompt = '你是一位擅长提供概念详细信息的专家。提供全面的描述和背景知识。使用提供的上下文来增强你的回答。';
       
       // Include context text if available
       if (contextText && contextText.length > 0) {
         userPrompt = `提供关于"${inputContent}"的详细信息。包括描述和背景知识。
         
-        以下是实体出现的上下文，请使用这些信息来增强你的回答：
+        以下是概念出现的上下文，请使用这些信息来增强你的回答：
         
         "${contextText}"
         
@@ -428,8 +432,8 @@ async function callAnthropicAPI(action, inputContent, apiKey, contextText = '') 
         以JSON格式返回：
         {
           "info": {
-            "description": "实体的详细描述...",
-            "background": "关于实体的背景知识..."
+            "description": "概念的详细描述...",
+            "background": "关于概念的背景知识..."
           }
         }
         `;
@@ -438,21 +442,21 @@ async function callAnthropicAPI(action, inputContent, apiKey, contextText = '') 
         以JSON格式返回：
         {
           "info": {
-            "description": "实体的详细描述...",
-            "background": "关于实体的背景知识..."
+            "description": "概念的详细描述...",
+            "background": "关于概念的背景知识..."
           }
         }
         `;
       }
       break;
     case 'getEntityRelationships':
-      systemPrompt = '你是一位擅长识别实体之间关系的专家。识别给定实体与其他实体之间所有可能的关系。使用提供的上下文来增强你的回答。';
+      systemPrompt = '你是一位擅长识别概念之间关系的专家。识别给定概念与其他概念之间所有可能的关系。使用提供的上下文来增强你的回答。';
       
       // Include context text if available
       if (contextText && contextText.length > 0) {
-        userPrompt = `识别"${inputContent}"与其他实体之间可能的关系。
+        userPrompt = `识别"${inputContent}"与其他概念之间可能的关系。
         
-        以下是实体出现的上下文，请使用这些信息来识别关系：
+        以下是概念出现的上下文，请使用这些信息来识别关系：
         
         "${contextText}"
         
@@ -460,18 +464,18 @@ async function callAnthropicAPI(action, inputContent, apiKey, contextText = '') 
         以JSON格式返回：
         {
          "relationships": [
-           {"targetEntity": "实体B", "type": "父级"},
-           {"targetEntity": "实体C", "type": "合作"}
+           {"targetEntity": "概念B", "type": "父级"},
+           {"targetEntity": "概念C", "type": "合作"}
          ]
         }
         `;
       } else {
-        userPrompt = `识别"${inputContent}"与其他实体之间可能的关系。将关系作为JSON对象返回，包含"relationships"属性，该属性包含一个对象数组，每个对象具有"targetEntity"和"type"属性。
+        userPrompt = `识别"${inputContent}"与其他概念之间可能的关系。将关系作为JSON对象返回，包含"relationships"属性，该属性包含一个对象数组，每个对象具有"targetEntity"和"type"属性。
         以JSON格式返回：
         {
          "relationships": [
-           {"targetEntity": "实体B", "type": "父级"},
-           {"targetEntity": "实体C", "type": "合作"}
+           {"targetEntity": "概念B", "type": "父级"},
+           {"targetEntity": "概念C", "type": "合作"}
          ]
         }
         `;

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Entity Highlighter",
+  "name": "TextInsight Pro",
   "version": "1.0",
-  "description": "Highlights entities in text and visualizes relationships using AI models",
+  "description": "Analyzes and highlights key entities in web pages",
   "permissions": ["storage", "activeTab"],
   "action": {
     "default_popup": "popup.html",

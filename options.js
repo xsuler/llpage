@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS = {
   modelName: 'deepseek-chat',
   apiType: 'openai',
   chunkSize: 500,
-  temperature: 0.1,
+  temperature: 0.7,
   autoProcess: false // Disable automatic processing by default
 };
 

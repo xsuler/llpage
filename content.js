@@ -20,6 +20,10 @@ let entityIdCounter = 0; // Counter for generating unique entity IDs
 let pendingEntityRequests = new Map(); // Track ongoing entity detail requests
 let isRequestInProgress = false; // Flag to track if a request is in progress
 
+// New data structures for storing entity positions
+let entityPositions = new Map(); // Map<TextNode, Array<{start, end, entity}>>
+let pendingHighlights = []; // Array of positions to highlight after chunk processing
+
 // Function to generate unique entity ID
 function generateEntityId() {
   return `entity_${++entityIdCounter}`;
@@ -407,6 +411,9 @@ function processTextChunk(text, textNodes) {
     if (response && response.success) {
       const chunkEntities = response.entities || [];
       debugLog(`Received ${chunkEntities.length} entities for chunk`);
+      for (const entity of chunkEntities) {
+        debugLog(entity.name);
+      }
       
       // Add new entities to the global list
       for (const entity of chunkEntities) {
@@ -415,8 +422,8 @@ function processTextChunk(text, textNodes) {
         }
       }
       
-      // Highlight entities in this chunk's text nodes
-      highlightEntitiesInNodes(chunkEntities, textNodes);
+      // Highlight all known entities in this chunk's text nodes, not just the newly found ones
+      highlightEntitiesInNodes(entities, textNodes);
       
       // Mark these nodes as processed
       textNodes.forEach(node => processedTextNodes.add(node));
@@ -446,60 +453,233 @@ function processTextChunk(text, textNodes) {
   });
 }
 
-// Highlight entities in specific text nodes
+// Modified highlightEntityInNode to only find positions without modifying DOM
+function findEntityPositionsInNode(textNode, entity, originalText) {
+  try {
+    let text = originalText;
+    const entityName = entity.name;
+    
+    if (!entityName) {
+      debugLog('Skipping empty entity name');
+      return [];
+    }
+
+    const positions = [];
+    const entityLower = entityName.toLowerCase();
+    const textLower = text.toLowerCase();
+    const entityLength = [...entityName].length;
+
+    // Find all matches
+    let currentIndex = 0;
+    while (currentIndex < textLower.length) {
+      const index = textLower.indexOf(entityLower, currentIndex);
+      if (index === -1) break;
+      
+      positions.push({
+        start: index,
+        end: index + entityLength,
+        entity: entity,
+        originalText: text.substring(index, index + entityLength)
+      });
+      
+      currentIndex = index + entityLength;
+    }
+
+    return positions;
+  } catch (e) {
+    debugLog(`Error finding entity positions in node: ${e.message}`);
+    return [];
+  }
+}
+
+// Modified highlightEntitiesInNodes to separate position finding from highlighting
 function highlightEntitiesInNodes(entities, textNodes) {
-  let highlightCount = 0;
+  debugLog(`Finding positions for ${entities.length} entities in ${textNodes.length} nodes`);
   
-  // Create a map of text nodes to their original content
-  const textNodeContents = new Map();
+  // Sort entities by length (longest first) to handle overlapping entities properly
+  const sortedEntities = [...entities].sort((a, b) => b.name.length - a.name.length);
+  
+  // Find positions for each text node
   textNodes.forEach(node => {
-    if (node.parentNode) {
-      textNodeContents.set(node, node.textContent);
+    if (!node.parentNode) return;
+    
+    const nodePositions = [];
+    sortedEntities.forEach(entity => {
+      const positions = findEntityPositionsInNode(node, entity, node.textContent);
+      nodePositions.push(...positions);
+    });
+
+    // Sort positions by start index
+    nodePositions.sort((a, b) => a.start - b.start);
+
+    // Filter out overlapping positions, keeping only the longest ones
+    const filteredPositions = [];
+    for (let i = 0; i < nodePositions.length; i++) {
+      const current = nodePositions[i];
+      let isOverlapped = false;
+
+      // Check if current position overlaps with any previously added position
+      for (const existing of filteredPositions) {
+        // Check for overlap
+        if (!(current.end <= existing.start || current.start >= existing.end)) {
+          isOverlapped = true;
+          break;
+        }
+      }
+
+      if (!isOverlapped) {
+        filteredPositions.push(current);
+      }
+    }
+    
+    // Store filtered positions for this node if any were found
+    if (filteredPositions.length > 0) {
+      entityPositions.set(node, filteredPositions);
+      pendingHighlights.push(...filteredPositions.map(pos => ({
+        node,
+        position: pos,
+        rect: getTextNodeRect(node, pos.start, pos.end)
+      })));
     }
   });
   
-  // Process each entity
-  entities.forEach(entity => {
-    // For each text node
-    textNodeContents.forEach((originalContent, textNode) => {
-      if (!textNode.parentNode) return; // Skip if node was removed
-      
-      const text = originalContent;
-      
-      // Use a more flexible regex pattern for Chinese and other non-Latin characters
-      let entityRegex;
-      if (/[\u4e00-\u9fa5]/.test(entity.name)) {
-        // Chinese characters detected, don't use word boundaries
-        entityRegex = new RegExp(`${escapeRegExp(entity.name)}`, 'g');
-      } else {
-        // Use word boundaries for Latin script
-        entityRegex = new RegExp(`\\b${escapeRegExp(entity.name)}\\b`, 'gi');
-      }
-      
-      if (entityRegex.test(text)) {
-        try {
-          highlightEntityInNode(textNode, entity, text);
-          highlightCount++;
-        } catch (e) {
-          debugLog(`Error highlighting entity "${entity.name}" in node: ${e.message}`);
-        }
-      }
-    });
-  });
-  
-  // Ensure all newly created entity highlights are clickable
-  document.querySelectorAll('.entity-highlight').forEach(el => {
-    el.dataset.clickable = 'true';
-    el.style.cursor = 'pointer';
+  // After finding all positions in this chunk, apply highlights
+  applyPendingHighlights();
+}
+
+// Improved function to get text node rectangle coordinates
+function getTextNodeRect(node, startOffset, endOffset) {
+  try {
+    const range = document.createRange();
+    range.setStart(node, startOffset);
+    range.setEnd(node, endOffset);
+    const rects = range.getClientRects();
     
-    // Make sure the element responds to clicks
-    el.addEventListener('click', function(event) {
-      event.stopPropagation();
-      handleEntityClick(event);
-    });
+    // If we have multiple client rects, return the first one
+    // This happens when text wraps to multiple lines
+    if (rects.length > 0) {
+      return rects[0];
+    }
+    
+    // Fallback to getBoundingClientRect if getClientRects returns empty
+    return range.getBoundingClientRect();
+  } catch (e) {
+    debugLog(`Error getting text node rect: ${e.message}`);
+    // Return a default rect to prevent errors
+    return { top: 0, left: 0, width: 0, height: 0 };
+  }
+}
+
+// Improved function to apply highlights using rectangles
+function applyPendingHighlights() {
+  debugLog(`Applying ${pendingHighlights.length} pending highlights`);
+  
+  pendingHighlights.forEach(highlight => {
+    const { node, position } = highlight;
+    
+    try {
+      // Get fresh rect coordinates
+      const rect = getTextNodeRect(node, position.start, position.end);
+      
+      // Create highlight element
+      const highlightEl = document.createElement('div');
+      highlightEl.className = 'entity-highlight';
+      const entityId = generateEntityId();
+      highlightEl.dataset.entityId = entityId;
+      highlightEl.dataset.entityName = position.entity.name;
+      highlightEl.dataset.entityType = position.entity.type || 'unknown';
+      highlightEl.dataset.clickable = 'true';
+      highlightEl.style.cursor = 'pointer';
+      
+      // Store the node and position for repositioning
+      highlightEl.dataset.nodeId = node.nodeId || (node.nodeId = generateEntityId());
+      highlightEl.dataset.startOffset = position.start;
+      highlightEl.dataset.endOffset = position.end;
+      
+      // Position the highlight using fixed positioning
+      highlightEl.style.position = 'fixed';
+      highlightEl.style.left = `${rect.left}px`;
+      highlightEl.style.top = `${rect.top}px`;
+      highlightEl.style.width = `${rect.width}px`;
+      highlightEl.style.height = `${rect.height}px`;
+      highlightEl.style.backgroundColor = 'rgba(0, 0, 255, 0.3)';
+      highlightEl.style.zIndex = '1000';
+      highlightEl.style.pointerEvents = 'auto';
+      
+      // Set the text content (make it transparent to show original text)
+      highlightEl.textContent = position.originalText;
+      highlightEl.style.color = 'transparent';
+      
+      // Add to document
+      document.body.appendChild(highlightEl);
+      highlightedElements.push(highlightEl);
+      
+      // Add click handler
+      highlightEl.addEventListener('click', function(event) {
+        event.stopPropagation();
+        handleEntityClick(event);
+      });
+    } catch (e) {
+      debugLog(`Error creating highlight: ${e.message}`);
+    }
   });
   
-  debugLog(`Highlighted ${highlightCount} entity instances in this chunk`);
+  // Add scroll event listener to update positions
+  if (!window.highlightScrollHandler && highlightedElements.length > 0) {
+    window.highlightScrollHandler = function() {
+      requestAnimationFrame(updateHighlightPositions);
+    };
+    window.addEventListener('scroll', window.highlightScrollHandler, { passive: true });
+    window.addEventListener('resize', window.highlightScrollHandler, { passive: true });
+  }
+  
+  // Clear pending highlights after applying
+  pendingHighlights = [];
+}
+
+// New function to update highlight positions on scroll/resize
+function updateHighlightPositions() {
+  if (highlightedElements.length === 0) return;
+  
+  highlightedElements.forEach(el => {
+    try {
+      // Skip elements that don't have node data
+      if (!el.dataset.nodeId || !el.dataset.startOffset || !el.dataset.endOffset) return;
+      
+      // Find the original node
+      const nodeId = el.dataset.nodeId;
+      let foundNode = null;
+      
+      // Search for the node in the document
+      const findNode = function(root) {
+        if (root.nodeId === nodeId) return root;
+        if (root.childNodes) {
+          for (let i = 0; i < root.childNodes.length; i++) {
+            const result = findNode(root.childNodes[i]);
+            if (result) return result;
+          }
+        }
+        return null;
+      };
+      
+      foundNode = findNode(document.body);
+      
+      // If node is found, update position
+      if (foundNode && foundNode.nodeType === Node.TEXT_NODE) {
+        const startOffset = parseInt(el.dataset.startOffset);
+        const endOffset = parseInt(el.dataset.endOffset);
+        const rect = getTextNodeRect(foundNode, startOffset, endOffset);
+        
+        // Update position
+        el.style.left = `${rect.left}px`;
+        el.style.top = `${rect.top}px`;
+        el.style.width = `${rect.width}px`;
+        el.style.height = `${rect.height}px`;
+      }
+    } catch (e) {
+      debugLog(`Error updating highlight position: ${e.message}`);
+    }
+  });
 }
 
 // Original highlightEntities function (now used for manual triggering)
@@ -513,95 +693,109 @@ function highlightEntities() {
   processPageContentProgressively();
 }
 
-// Reset all highlights and processing state
+// Modified resetHighlights to also remove event listeners
 function resetHighlights() {
   debugLog('Resetting all highlights and processing state');
   
   // Remove existing highlights
   highlightedElements.forEach(el => {
     if (el.parentNode) {
-      const text = document.createTextNode(el.textContent);
-      el.parentNode.replaceChild(text, el);
+      el.remove();
     }
   });
+  
+  // Remove scroll handler
+  if (window.highlightScrollHandler) {
+    window.removeEventListener('scroll', window.highlightScrollHandler);
+    window.removeEventListener('resize', window.highlightScrollHandler);
+    window.highlightScrollHandler = null;
+  }
   
   // Reset state
   highlightedElements = [];
   processedTextNodes = new Set();
-  entityDetailsCache.clear(); // Clear the entity details cache
-  pendingEntityRequests.clear(); // Clear pending requests
-  isRequestInProgress = false; // Reset request in progress flag
+  entityDetailsCache.clear();
+  pendingEntityRequests.clear();
+  entityPositions.clear();
+  pendingHighlights = [];
+  isRequestInProgress = false;
   removeInfoPanel();
   removeProcessingStatus();
   removeProcessingOverlay();
   highlightingInProgress = false;
 }
 
-// Helper function to escape special characters in regex
-function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 // Highlight a specific entity in a text node
 function highlightEntityInNode(textNode, entity, originalText) {
   try {
-    // Use the original text if provided, otherwise use the current content
-    const text = originalText || textNode.textContent;
+    let text = originalText;
+    const entityName = entity.name;
     
-    // Use a more flexible regex pattern for Chinese and other non-Latin characters
-    let entityRegex;
-    if (/[\u4e00-\u9fa5]/.test(entity.name)) {
-      // Chinese characters detected, don't use word boundaries
-      entityRegex = new RegExp(`${escapeRegExp(entity.name)}`, 'g');
-    } else {
-      // Use word boundaries for Latin script
-      entityRegex = new RegExp(`\\b${escapeRegExp(entity.name)}\\b`, 'gi');
+    if (!entityName) {
+      debugLog('Skipping empty entity name');
+      return [];
     }
-    
-    let match;
-    let lastIndex = 0;
+
     let fragments = [];
-    
-    while ((match = entityRegex.exec(text)) !== null) {
-      // Add text before the match
-      if (match.index > lastIndex) {
-        fragments.push(document.createTextNode(text.substring(lastIndex, match.index)));
+    const matches = [];
+    const entityLower = entityName.toLowerCase();
+    const textLower = text.toLowerCase();
+    const entityLength = [...entityName].length;
+
+    // Find all matches first
+    let currentIndex = 0;
+    while (currentIndex < textLower.length) {
+      const index = textLower.indexOf(entityLower, currentIndex);
+      if (index === -1) break;
+      
+      matches.push({
+        start: index,
+        end: index + entityLength,
+        entity: entity
+      });
+      
+      currentIndex = index + entityLength;
+    }
+
+    // If no matches, return empty array
+    if (matches.length === 0) return [];
+
+    // Sort matches by start index (ascending)
+    matches.sort((a, b) => a.start - b.start);
+
+    // Build fragments
+    let lastPos = 0;
+    matches.forEach(match => {
+      // Add text before match
+      if (match.start > lastPos) {
+        fragments.push(document.createTextNode(text.substring(lastPos, match.start)));
       }
       
-      // Create highlighted span for the entity
+      // Create highlight span
       const span = document.createElement('span');
       const entityId = generateEntityId();
       span.className = 'entity-highlight';
-      span.textContent = match[0];
+      span.textContent = text.substring(match.start, match.end);
       span.dataset.entityId = entityId;
-      span.dataset.entityName = entity.name;
+      span.dataset.entityName = entityName;
       span.dataset.entityType = entity.type || 'unknown';
       span.dataset.clickable = 'true';
       span.style.cursor = 'pointer';
-      highlightedElements.push(span);
+
       fragments.push(span);
-      
-      lastIndex = match.index + match[0].length;
+      highlightedElements.push(span);
+      lastPos = match.end;
+    });
+
+    // Add remaining text after last match
+    if (lastPos < text.length) {
+      fragments.push(document.createTextNode(text.substring(lastPos)));
     }
-    
-    // Add remaining text
-    if (lastIndex < text.length) {
-      fragments.push(document.createTextNode(text.substring(lastIndex)));
-    }
-    
-    // Replace the original text node with the fragments
-    if (fragments.length > 1) {
-      const parent = textNode.parentNode;
-      if (parent) {
-        fragments.forEach(fragment => {
-          parent.insertBefore(fragment, textNode);
-        });
-        parent.removeChild(textNode);
-      }
-    }
+
+    return fragments;
   } catch (e) {
     debugLog(`Error highlighting entity in node: ${e.message}`);
-    throw e; // Re-throw to allow caller to handle
+    return [];
   }
 }
 
@@ -614,7 +808,6 @@ function handleEntityClick(event) {
     event.preventDefault();
     event.stopPropagation();
     
-    const entityId = target.dataset.entityId;
     const entityName = target.textContent;
     
     debugLog(`Entity clicked: ${entityName}`);

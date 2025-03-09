@@ -2,8 +2,8 @@
 
 /* Entity highlight styles */
 .entity-highlight {
-  background-color: rgba(64, 158, 255, 0.3);
-  border-bottom: 1px solid #4099ff;
+  background-color: rgba(49, 130, 206, 0.2);
+  border-bottom: 1px solid #3182ce;
   border-radius: 2px;
   cursor: pointer;
   padding: 0 2px;
@@ -14,7 +14,7 @@
 }
 
 .entity-highlight:hover {
-  background-color: rgba(64, 158, 255, 0.5);
+  background-color: rgba(49, 130, 206, 0.4);
 }
 
 /* Entity info panel styles */
@@ -22,11 +22,12 @@
   position: absolute;
   z-index: 10001; /* Increased z-index to appear above entity highlights */
   background: white;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 15px;
+  border: none;
+  border-radius: 6px;
+  padding: 18px;
   max-width: 400px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .entity-info-panel h3 {
